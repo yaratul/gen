@@ -3,7 +3,7 @@ import gen  # Import the card generation module
 import re
 
 # Create your bot with the bot token
-API_TOKEN = '6561482740:AAH4vIrIZCjTzy92MO2ux9OCbaTg7AMDpMs'
+API_TOKEN = '6561482740:AAG0oFldylLCXz5lvPaantgKMntdBZv5Fxw'
 bot = telebot.TeleBot(API_TOKEN)
 
 # Regex to validate and parse the user input for the /gen command
