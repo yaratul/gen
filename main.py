@@ -1,46 +1,94 @@
 import telebot
-import gen  # Import the card generation module
+import gen  # Import the enhanced gen.py script
 import re
+import os
 
-# Create your bot with the bot token
+# Your Telegram Bot API token
 API_TOKEN = '6561482740:AAG0oFldylLCXz5lvPaantgKMntdBZv5Fxw'
 bot = telebot.TeleBot(API_TOKEN)
 
 # Regex to validate and parse the user input for the /gen command
-gen_pattern = re.compile(r'/gen (\d{6,})(?:\|(\d{2})\|(\d{2,4})\|(\d{3}))?')
+gen_pattern = re.compile(r'/gen (\d{6,})(?:\s+(\d+))?')
 
 # Function to handle the /gen command
 @bot.message_handler(commands=['gen'])
 def handle_gen(message):
-    # Extract the command and validate it using regex
+    """
+    Handle the /gen command to generate cards based on user input.
+    """
     match = gen_pattern.match(message.text)
-    if match:
-        # Extract the groups (BIN, month, year, CVC)
-        bin_number, month, year, cvc = match.groups()
+    if not match:
+        bot.reply_to(message, "❌ Invalid format. Use: `/gen BIN QUANTITY`\n"
+                              "Example: `/gen 434257 100`", parse_mode='Markdown')
+        return
 
-        # Truncate BIN to the first 6 digits for lookup
-        truncated_bin = bin_number[:6]
+    bin_number, quantity = match.groups()
 
-        # Validate year length and adjust if necessary
-        if year and len(year) == 2:
-            year = f"20{year}"  # Convert to 4 digits
+    try:
+        # Parse quantity or default to 25
+        quantity = int(quantity) if quantity else 25
+        if len(bin_number) < 6 or not bin_number.isdigit():
+            raise ValueError("BIN must be a valid 6-digit number.")
+        if quantity < 1 or quantity > 5000:
+            raise ValueError("Quantity must be between 1 and 5000.")
 
         # Generate the cards
-        cards = gen.generate_cards(bin_number, month, year, cvc)
+        cards = gen.generate_cards(bin_number, quantity)
 
-        # Get BIN details (using truncated BIN)
-        bin_info = gen.get_bin_details(truncated_bin)
+        if quantity <= 25:
+            # Reply directly with card details for small quantities
+            cards_output = "\n".join(cards)
+            bin_info = gen.get_bin_details(bin_number)
+            bin_info_message = (
+                f"✅ Generated {quantity} cards:\n\n"
+                f"{cards_output}\n\n"
+                f"🔰 BIN Details:\n"
+                f"Bank: {bin_info['Bank']}\n"
+                f"Country: {bin_info['Country']}\n"
+                f"Card Type: {bin_info['Card Type']}"
+            )
+            bot.reply_to(message, bin_info_message)
+        else:
+            # Save the generated cards to a temporary file
+            file_path = f"generated_cards_{bin_number}.txt"
+            try:
+                with open(file_path, "w") as file:
+                    file.write("\n".join(cards))
 
-        # Format the output in monospace (with triple backticks for easy copying)
-        cards_output = '𝙇𝙪𝙝𝙣 𝘼𝙣𝙙 𝙍𝙚𝙜𝙚𝙭 𝙑𝙚𝙧𝙞𝙛𝙞𝙚𝙙 ✅\n' + '\n'.join(cards) + '\n 𝙎𝙪𝙘𝙘𝙚𝙨𝙨𝙛𝙪𝙡𝙡𝙮 𝙜𝙚𝙣𝙚𝙧𝙖𝙩𝙚𝙙 25 𝙘𝙖𝙧𝙙𝙨 🔰 '
-        
-        # Show BIN details along with the generated cards in monospace
-        bin_info_output = f"\nBIN Details:\nBank: {bin_info['Bank']}\nCountry: {bin_info['Country']}\nCard Type: {bin_info['Card Type']}"
-        
-        bot.reply_to(message, f"Generated 25 cards:\n{cards_output}{bin_info_output}")
-    else:
-        # If the format is wrong, send an error message
-        bot.reply_to(message, "𝙄𝙣𝙫𝙖𝙡𝙞𝙙 𝙛𝙤𝙧𝙢𝙖𝙩. 𝙐𝙨𝙚: /𝙜𝙚𝙣 𝘽𝙄𝙉|𝙈𝙈|𝙔𝙔𝙔𝙔|𝘾𝙑𝘾 𝙤𝙧 𝙨𝙞𝙢𝙥𝙡𝙮 /𝙜𝙚𝙣 𝘽𝙄𝙉")
+                # Send the file
+                with open(file_path, "rb") as file:
+                    bot.send_document(message.chat.id, file)
+
+                # Delete the file after sending
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                bot.reply_to(message, f"❌ Error handling file: {e}")
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+
+            # Send BIN details separately
+            bin_info = gen.get_bin_details(bin_number)
+            bin_info_message = (
+                f"✅ Cards generated successfully!\n\n"
+                f"🔰 BIN Details:\n"
+                f"Bank: {bin_info['Bank']}\n"
+                f"Country: {bin_info['Country']}\n"
+                f"Card Type: {bin_info['Card Type']}\n\n"
+                f"📄 Total cards generated: {quantity}."
+            )
+            bot.reply_to(message, bin_info_message, parse_mode='Markdown')
+
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+# Function to handle invalid commands
+@bot.message_handler(func=lambda message: True)
+def invalid_command(message):
+    """
+    Catch-all handler for invalid commands.
+    """
+    bot.reply_to(message, "❌ Unrecognized command. Use `/gen BIN QUANTITY`.")
 
 # Start polling to listen for new messages
 bot.polling()
