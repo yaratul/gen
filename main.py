@@ -4,7 +4,7 @@ import gen  # Import the generation tool logic
 import px   # Import the proxy checker tool logic
 
 # Replace this with your actual Telegram bot token
-TOKEN = '6126045919:AAEo-9ddN2PvlzWtnWtyUbkxQCUpSyXLKVg'
+TOKEN = '6561482740:AAFrL7jzYQGt9rmlAweJH-JhBjZ9o5VnsjU'
 bot = telebot.TeleBot(TOKEN)
 
 # List of tools
