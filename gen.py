@@ -127,6 +127,7 @@ def handle_callbacks(bot, call):
     elif call.data == "gen_generate_cards":
         generate_cards(bot, chat_id)
 
+# Define handlers for updating user session
 def set_bin(message, bot):
     chat_id = message.chat.id
     bin_value = message.text.strip()
@@ -135,6 +136,54 @@ def set_bin(message, bot):
         bot.send_message(chat_id, f"BIN updated to `{bin_value}`.", parse_mode="Markdown", reply_markup=create_settings_keyboard(chat_id))
     else:
         bot.send_message(chat_id, "❌ Invalid BIN. Please enter at least 6 digits.")
+
+def set_quantity(message, bot):
+    chat_id = message.chat.id
+    try:
+        quantity = int(message.text.strip())
+        if 1 <= quantity <= 50:
+            user_sessions[chat_id]['quantity'] = quantity
+            bot.send_message(chat_id, f"Quantity updated to `{quantity}`.", parse_mode="Markdown", reply_markup=create_settings_keyboard(chat_id))
+        else:
+            bot.send_message(chat_id, "❌ Enter a valid quantity between 1 and 50.")
+    except ValueError:
+        bot.send_message(chat_id, "❌ Please enter a valid number.")
+
+def set_month(message, bot):
+    chat_id = message.chat.id
+    month = message.text.strip()
+    if month.lower() == "rnd":
+        user_sessions[chat_id]['month'] = None
+        bot.send_message(chat_id, "Expiration month set to random.", reply_markup=create_settings_keyboard(chat_id))
+    elif month.isdigit() and 1 <= int(month) <= 12:
+        user_sessions[chat_id]['month'] = f"{int(month):02d}"
+        bot.send_message(chat_id, f"Month updated to `{user_sessions[chat_id]['month']}`.", parse_mode="Markdown", reply_markup=create_settings_keyboard(chat_id))
+    else:
+        bot.send_message(chat_id, "❌ Invalid month. Enter a value between 01 and 12, or type 'rnd'.")
+
+def set_year(message, bot):
+    chat_id = message.chat.id
+    year = message.text.strip()
+    if year.lower() == "rnd":
+        user_sessions[chat_id]['year'] = None
+        bot.send_message(chat_id, "Expiration year set to random.", reply_markup=create_settings_keyboard(chat_id))
+    elif year.isdigit() and 2024 <= int(year) <= 2035:
+        user_sessions[chat_id]['year'] = int(year)
+        bot.send_message(chat_id, f"Year updated to `{year}`.", parse_mode="Markdown", reply_markup=create_settings_keyboard(chat_id))
+    else:
+        bot.send_message(chat_id, "❌ Invalid year. Enter a value between 2024 and 2035, or type 'rnd'.")
+
+def set_cvv(message, bot):
+    chat_id = message.chat.id
+    cvv = message.text.strip()
+    if cvv.lower() == "rnd":
+        user_sessions[chat_id]['fixed_cvv'] = None
+        bot.send_message(chat_id, "CVV set to random.", reply_markup=create_settings_keyboard(chat_id))
+    elif cvv.isdigit() and 3 <= len(cvv) <= 4:
+        user_sessions[chat_id]['fixed_cvv'] = cvv
+        bot.send_message(chat_id, f"CVV updated to `{cvv}`.", parse_mode="Markdown", reply_markup=create_settings_keyboard(chat_id))
+    else:
+        bot.send_message(chat_id, "❌ Invalid CVV. Enter a value with 3-4 digits, or type 'rnd'.")
 
 def generate_cards(bot, chat_id):
     user_data = user_sessions[chat_id]
