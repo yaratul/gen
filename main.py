@@ -1,14 +1,76 @@
 import random
+import requests
 import telebot
 from gen import generate_luhn_compliant_card
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-# Replace this with your actual Telegram bot token from BotFather
+# Replace this with your actual Telegram bot token
 TOKEN = '6561482740:AAFrL7jzYQGt9rmlAweJH-JhBjZ9o5VnsjU'
 bot = telebot.TeleBot(TOKEN)
 
 # User session data for settings
 user_sessions = {}
+
+
+# Fetch BIN details from a free API
+    # Fetch BIN details from multiple APIs
+def fetch_bin_details(bin_prefix):
+        try:
+            # Primary API (BinList)
+            response = requests.get(f"https://lookup.binlist.net/{bin_prefix}", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "brand": data.get("scheme", "Unknown").upper(),
+                    "type": data.get("type", "Unknown").upper(),
+                    "level": data.get("brand", "Unknown").upper(),
+                    "bank": data.get("bank", {}).get("name", "Unknown"),
+                    "country": data.get("country", {}).get("name", "Unknown"),
+                    "emoji": data.get("country", {}).get("emoji", ""),
+                }
+            elif response.status_code == 404:
+                return {"brand": "Unknown", "type": "Unknown", "level": "Unknown", "bank": "Unknown", "country": "Unknown", "emoji": ""}
+        except Exception as e:
+            print(f"Error with BinList API: {e}")
+
+        # Fallback API (another free BIN lookup service)
+        try:
+            fallback_response = requests.get(f"https://api.bincodes.com/bin/?format=json&api_key=YOUR_API_KEY&bin={bin_prefix}", timeout=5)
+            if fallback_response.status_code == 200:
+                fallback_data = fallback_response.json()
+                return {
+                    "brand": fallback_data.get("card_type", "Unknown").upper(),
+                    "type": fallback_data.get("card_category", "Unknown").upper(),
+                    "level": fallback_data.get("card_level", "Unknown").upper(),
+                    "bank": fallback_data.get("issuer", "Unknown"),
+                    "country": fallback_data.get("country", "Unknown"),
+                    "emoji": "",  # This API does not provide emoji data
+                }
+        except Exception as e:
+            print(f"Error with fallback BIN API: {e}")
+
+        # If all APIs fail, return default "Unknown"
+        return {
+            "brand": "Unknown",
+            "type": "Unknown",
+            "level": "Unknown",
+            "bank": "Unknown",
+            "country": "Unknown",
+            "emoji": "",
+        }
+
+
+
+# Fetch a random anime picture
+def fetch_anime_pic():
+    try:
+        response = requests.get("https://api.waifu.pics/sfw/waifu")
+        if response.status_code == 200:
+            return response.json().get("url", None)
+    except Exception as e:
+        print(f"Error fetching anime pic: {e}")
+    return "https://i.imgur.com/4Z1sMEx.jpeg"  # Default fallback
+
 
 # Generate a valid card number using the Luhn algorithm
 def generate_card(bin_prefix, month, year, cvv_length, fixed_cvv):
@@ -17,6 +79,7 @@ def generate_card(bin_prefix, month, year, cvv_length, fixed_cvv):
     expiration_year = year if year else random.randint(2025, 2030)
     cvv = fixed_cvv if fixed_cvv else ''.join([str(random.randint(0, 9)) for _ in range(cvv_length)])
     return f"{card_number}|{expiration_month}|{expiration_year}|{cvv}"
+
 
 # Start interaction with /gen
 @bot.message_handler(commands=['gen'])
@@ -33,7 +96,8 @@ def start_gen(message):
 
     # Create an interactive keyboard
     keyboard = create_settings_keyboard(chat_id)
-    bot.send_message(chat_id, "Customize your settings below:", reply_markup=keyboard)
+    bot.send_message(chat_id, " 𝙒𝙚𝙡𝙘𝙤𝙢𝙚 ❣️  𝘾𝙪𝙨𝙩𝙤𝙢𝙞𝙯𝙚 𝙮𝙤𝙪𝙧 𝙗𝙞𝙣 𝘿𝙚𝙩𝙖𝙞𝙡𝙨 𝙝𝙚𝙧𝙚  👇", reply_markup=keyboard)
+
 
 # Create settings keyboard
 def create_settings_keyboard(chat_id):
@@ -52,6 +116,7 @@ def create_settings_keyboard(chat_id):
         InlineKeyboardButton("✅ Generate Cards", callback_data="generate_cards"),
     )
     return keyboard
+
 
 # Handle button interactions
 @bot.callback_query_handler(func=lambda call: True)
@@ -84,6 +149,7 @@ def handle_query(call):
     elif call.data == "generate_cards":
         generate_cards(call)
 
+
 # Set BIN
 def set_bin(message):
     chat_id = message.chat.id
@@ -93,6 +159,7 @@ def set_bin(message):
         bot.send_message(chat_id, f"BIN updated to {bin_value}.", reply_markup=create_settings_keyboard(chat_id))
     else:
         bot.send_message(chat_id, "Invalid BIN. Please enter at least 6 digits.")
+
 
 # Set quantity
 def set_quantity(message):
@@ -107,44 +174,6 @@ def set_quantity(message):
     except ValueError:
         bot.send_message(chat_id, "Invalid quantity. Please enter a number between 1 and 50.")
 
-# Set month
-def set_month(message):
-    chat_id = message.chat.id
-    month = message.text.strip()
-    if month.lower() == 'rnd':
-        user_sessions[chat_id]['month'] = None
-        bot.send_message(chat_id, "Month set to random.", reply_markup=create_settings_keyboard(chat_id))
-    elif month.isdigit() and 1 <= int(month) <= 12:
-        user_sessions[chat_id]['month'] = f"{int(month):02d}"
-        bot.send_message(chat_id, f"Month updated to {month}.", reply_markup=create_settings_keyboard(chat_id))
-    else:
-        bot.send_message(chat_id, "Invalid month. Please enter a number between 01 and 12 or 'rnd'.")
-
-# Set year
-def set_year(message):
-    chat_id = message.chat.id
-    year = message.text.strip()
-    if year.lower() == 'rnd':
-        user_sessions[chat_id]['year'] = None
-        bot.send_message(chat_id, "Year set to random.", reply_markup=create_settings_keyboard(chat_id))
-    elif year.isdigit() and 2024 <= int(year) <= 2035:
-        user_sessions[chat_id]['year'] = int(year)
-        bot.send_message(chat_id, f"Year updated to {year}.", reply_markup=create_settings_keyboard(chat_id))
-    else:
-        bot.send_message(chat_id, "Invalid year. Please enter a number between 2024 and 2035 or 'rnd'.")
-
-# Set CVV
-def set_cvv(message):
-    chat_id = message.chat.id
-    cvv = message.text.strip()
-    if cvv.lower() == 'rnd':
-        user_sessions[chat_id]['fixed_cvv'] = None
-        bot.send_message(chat_id, "CVV set to random.", reply_markup=create_settings_keyboard(chat_id))
-    elif cvv.isdigit() and len(cvv) in [3, 4]:
-        user_sessions[chat_id]['fixed_cvv'] = cvv
-        bot.send_message(chat_id, f"CVV updated to {cvv}.", reply_markup=create_settings_keyboard(chat_id))
-    else:
-        bot.send_message(chat_id, "Invalid CVV. Please enter 3-4 digits or 'rnd'.")
 
 # Generate cards
 def generate_cards(call):
@@ -157,10 +186,33 @@ def generate_cards(call):
     cvv_length = 3 if user_data['fixed_cvv'] is None else len(user_data['fixed_cvv'])
     fixed_cvv = user_data['fixed_cvv']
 
+    # Fetch BIN details
+    bin_details = fetch_bin_details(bin_prefix)
+
+    # Generate cards
     cards = [generate_card(bin_prefix, month, year, cvv_length, fixed_cvv) for _ in range(quantity)]
+
+    # Fetch an anime picture
+    anime_pic = fetch_anime_pic()
+
+    # BIN details summary
+    bin_info = (
+        f"𝗕𝗜𝗡 ⇾ `{bin_prefix}`\n"
+        f"𝗕𝗿𝗮𝗻𝗱 ⇾ {bin_details['brand']}\n"
+        f"𝗧𝘆𝗽𝗲 ⇾ {bin_details['type']}\n"
+        f"𝗟𝗲𝘃𝗲𝗹 ⇾ {bin_details['level']}\n"
+        f"𝗜𝘀𝘀𝘂𝗲𝗿 ⇾ {bin_details['bank']}\n"
+        f"𝗖𝗼𝘂𝗻𝘁𝗿𝘆 ⇾ {bin_details['country']} {bin_details['emoji']}\n\n"
+    )
+
     cards_output = "\n".join(cards)
 
-    bot.send_message(chat_id, f"Generated Cards:\n\n{cards_output}")
+    bot.send_photo(
+        chat_id,
+        photo=anime_pic,
+        caption=f"{bin_info} 🔥 𝗛𝗲𝗿𝗲 𝗶𝘀 𝘆𝗼𝘂𝗿 𝗴𝗲𝗻𝗲𝗿𝗮𝘁𝗲𝗱 𝗖𝗖'𝘀 🔥  :\n\n{cards_output}",
+    )
+
 
 # Start the bot
 bot.polling(none_stop=True)
