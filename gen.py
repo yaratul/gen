@@ -1,53 +1,167 @@
 import random
+import requests
+from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+# User session data for settings
+user_sessions = {}
+
+# APIs
+WAIFU_API = "https://api.waifu.pics/sfw/waifu"
+BIN_LOOKUP_API = "https://lookup.binlist.net/"  # Free BIN lookup API
+
+# Generate a valid card number using the Luhn algorithm
 def generate_luhn_compliant_card(bin_prefix):
-    """
-    Generates a Luhn-compliant card number starting with the provided BIN prefix.
-    Args:
-        bin_prefix (str): The BIN prefix (minimum 6 digits).
-    Returns:
-        str: A valid card number.
-    """
-    # Fill the card number up to 15 digits (excluding the check digit)
-    card_number = bin_prefix + ''.join([str(random.randint(0, 9)) for _ in range(15 - len(bin_prefix))])
+    num = bin_prefix + ''.join([str(random.randint(0, 9)) for _ in range(15 - len(bin_prefix))])
+    checksum = 0
+    reversed_digits = map(int, reversed(num))
+    for i, digit in enumerate(reversed_digits):
+        if i % 2 == 0:
+            doubled = digit * 2
+            checksum += doubled - 9 if doubled > 9 else doubled
+        else:
+            checksum += digit
+    return num + str((10 - (checksum % 10)) % 10)
 
-    # Calculate the Luhn checksum
-    total_sum = 0
-    reverse_digits = card_number[::-1]
-    for i, digit in enumerate(reverse_digits):
-        n = int(digit)
-        if i % 2 == 0:  # Double every second digit (from right)
-            n *= 2
-            if n > 9:
-                n -= 9
-        total_sum += n
+def generate_card(bin_prefix, month, year, cvv_length, fixed_cvv):
+    card_number = generate_luhn_compliant_card(bin_prefix)
+    exp_month = month or f"{random.randint(1, 12):02d}"
+    exp_year = year or random.randint(2024, 2035)
+    cvv = fixed_cvv or ''.join([str(random.randint(0, 9)) for _ in range(cvv_length)])
+    return f"{card_number}|{exp_month}|{exp_year}|{cvv}"
 
-    # Calculate the check digit
-    check_digit = (10 - (total_sum % 10)) % 10
-    return card_number + str(check_digit)
+def start_gen(bot, message):
+    chat_id = message.chat.id
+    user_sessions[chat_id] = {
+        'bin': None,
+        'quantity': 5,
+        'cvv_length': 3,
+        'month': None,
+        'year': None,
+        'fixed_cvv': None,
+    }
 
-def generate_batch(bin_prefix, quantity):
-    """
-    Generates a batch of valid card numbers.
-    Args:
-        bin_prefix (str): The BIN prefix (minimum 6 digits).
-        quantity (int): The number of card numbers to generate.
-    Returns:
-        list: A list of valid card numbers.
-    """
-    if len(bin_prefix) < 6 or not bin_prefix.isdigit():
-        raise ValueError("BIN prefix must be at least 6 digits.")
-    if not (1 <= quantity <= 50):
-        raise ValueError("Quantity must be between 1 and 50.")
+    # Fetch waifu image
+    waifu_image = requests.get(WAIFU_API).json().get("url", None)
 
-    card_numbers = []
-    for _ in range(quantity):
-        card_numbers.append(generate_luhn_compliant_card(bin_prefix))
-    return card_numbers
+    # Create the interactive keyboard
+    keyboard = create_settings_keyboard(chat_id)
 
-# For standalone testing
-if __name__ == "__main__":
-    test_bin = "479851"  # Example BIN prefix
-    num_cards = 10       # Example quantity
-    generated_cards = generate_batch(test_bin, num_cards)
-    print("\n".join(generated_cards))
+    # Send message with waifu image
+    if waifu_image:
+        bot.send_photo(chat_id, waifu_image, caption="🛠 **Customize your settings below:**", reply_markup=keyboard, parse_mode="Markdown")
+    else:
+        bot.send_message(chat_id, "🛠 **Customize your settings below:**", reply_markup=keyboard, parse_mode="Markdown")
+
+def create_settings_keyboard(chat_id):
+    user_data = user_sessions[chat_id]
+    keyboard = InlineKeyboardMarkup(row_width=2)
+    keyboard.add(
+        InlineKeyboardButton(f"BIN: {user_data['bin'] or 'Not Set'}", callback_data="gen_edit_bin"),
+        InlineKeyboardButton(f"Quantity: {user_data['quantity']}", callback_data="gen_edit_quantity"),
+    )
+    keyboard.add(
+        InlineKeyboardButton(f"Month: {user_data['month'] or 'Random'}", callback_data="gen_edit_month"),
+        InlineKeyboardButton(f"Year: {user_data['year'] or 'Random'}", callback_data="gen_edit_year"),
+    )
+    keyboard.add(
+        InlineKeyboardButton(f"CVV: {user_data['fixed_cvv'] or 'Random'}", callback_data="gen_edit_cvv"),
+        InlineKeyboardButton("✅ Generate Cards", callback_data="gen_generate_cards"),
+    )
+    return keyboard
+
+def get_bin_details(bin_prefix):
+    try:
+        response = requests.get(BIN_LOOKUP_API + bin_prefix)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return None
+    except Exception:
+        return None
+
+def format_bin_details(bin_data):
+    if bin_data:
+        brand = bin_data.get("scheme", "Unknown").upper()
+        bin_type = bin_data.get("type", "Unknown").upper()
+        level = bin_data.get("brand", "Unknown")
+        issuer = bin_data.get("bank", {}).get("name", "Unknown")
+        country = bin_data.get("country", {}).get("name", "Unknown")
+        emoji = bin_data.get("country", {}).get("emoji", "")
+        return f"""
+𝗕𝗜𝗡 ⇾ `{bin_data.get("number", {}).get("prefix", 'Unknown')}`
+𝗕𝗿𝗮𝗻𝗱 ⇾ {brand}
+𝗧𝘆𝗽𝗲 ⇾ {bin_type}
+𝗟𝗲𝘃𝗲𝗹 ⇾ {level}
+𝗜𝘀𝘀𝘂𝗲𝗿 ⇾ {issuer}
+𝗖𝗼𝘂𝗻𝘁𝗿𝘆 ⇾ {country} {emoji}
+        """
+    else:
+        return "❌ **BIN details not found**"
+
+def handle_callbacks(bot, call):
+    chat_id = call.message.chat.id
+    if chat_id not in user_sessions:
+        bot.answer_callback_query(call.id, "Session expired. Please use /start.")
+        return
+
+    if call.data == "gen_edit_bin":
+        msg = bot.send_message(chat_id, "Enter the BIN (minimum 6 digits):")
+        bot.register_next_step_handler(msg, set_bin, bot)
+
+    elif call.data == "gen_edit_quantity":
+        msg = bot.send_message(chat_id, "Enter the quantity (1-50):")
+        bot.register_next_step_handler(msg, set_quantity, bot)
+
+    elif call.data == "gen_edit_month":
+        msg = bot.send_message(chat_id, "Enter the expiration month (01-12) or type 'rnd' for random:")
+        bot.register_next_step_handler(msg, set_month, bot)
+
+    elif call.data == "gen_edit_year":
+        msg = bot.send_message(chat_id, "Enter the expiration year (2024-2035) or type 'rnd' for random:")
+        bot.register_next_step_handler(msg, set_year, bot)
+
+    elif call.data == "gen_edit_cvv":
+        msg = bot.send_message(chat_id, "Enter a fixed CVV (3-4 digits) or type 'rnd' for random:")
+        bot.register_next_step_handler(msg, set_cvv, bot)
+
+    elif call.data == "gen_generate_cards":
+        generate_cards(bot, chat_id)
+
+def set_bin(message, bot):
+    chat_id = message.chat.id
+    bin_value = message.text.strip()
+    if len(bin_value) >= 6 and bin_value.isdigit():
+        user_sessions[chat_id]['bin'] = bin_value
+        bot.send_message(chat_id, f"BIN updated to `{bin_value}`.", parse_mode="Markdown", reply_markup=create_settings_keyboard(chat_id))
+    else:
+        bot.send_message(chat_id, "❌ Invalid BIN. Please enter at least 6 digits.")
+
+def generate_cards(bot, chat_id):
+    user_data = user_sessions[chat_id]
+    bin_prefix = user_data['bin']
+    if not bin_prefix:
+        bot.send_message(chat_id, "❌ **Please set a BIN first!**")
+        return
+
+    cards = [
+        generate_card(
+            bin_prefix,
+            user_data['month'],
+            user_data['year'],
+            user_data['cvv_length'],
+            user_data['fixed_cvv']
+        )
+        for _ in range(user_data['quantity'])
+    ]
+    cards_output = "\n".join(cards)
+
+    bin_data = get_bin_details(bin_prefix)
+    bin_details = format_bin_details(bin_data)
+
+    # Fetch waifu image
+    waifu_image = requests.get(WAIFU_API).json().get("url", None)
+
+    if waifu_image:
+        bot.send_photo(chat_id, waifu_image, caption=f"{bin_details}\n\n🔥 **Here are your generated CC's:** 🔥\n\n`{cards_output}`", parse_mode="Markdown")
+    else:
+        bot.send_message(chat_id, f"{bin_details}\n\n🔥 **Here are your generated CC's:** 🔥\n\n`{cards_output}`", parse_mode="Markdown")
