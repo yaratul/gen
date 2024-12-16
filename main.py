@@ -2,6 +2,7 @@ import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 import gen  # Import the generation tool logic
 import px   # Import the proxy checker tool logic
+import ai
 
 # Replace this with your actual Telegram bot token
 TOKEN = '6561482740:AAFrL7jzYQGt9rmlAweJH-JhBjZ9o5VnsjU'
