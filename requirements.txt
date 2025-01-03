@@ -1,4 +1,5 @@
-pyTelegramBotAPI
-requests
-colorama
-pycountry
+pyTelegramBotAPI==4.25.0
+Requests==2.32.3
+requests[socks]
+telebot
+stripe
