@@ -217,7 +217,7 @@ def check_card(card_number, exp_month, exp_year, cvc, proxies):
 """
             else:
                 # Fallback if BIN lookup fails
-                return "Declined ❌ - BIN Lookup Failed."
+                return str(api_response) 
         else:
             # Return the full response for other cases
             return str(api_response)
