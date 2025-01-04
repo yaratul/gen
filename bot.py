@@ -2,7 +2,7 @@ import telebot
 from core import check_card, load_proxies
 
 # Initialize the bot with your token
-BOT_TOKEN = "6126045919:AAE0BO9apAGh6oeBlGOgBWqKYXTYNTI2ppA"
+BOT_TOKEN = "6561482740:AAF8rmN9I4mpAOm_BVfekqgv9raRprnUtlw"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Load proxies
