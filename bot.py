@@ -9,8 +9,8 @@ bot = telebot.TeleBot(BOT_TOKEN)
 proxies = load_proxies('proxies.txt')
 
 @bot.message_handler(commands=['chk'])
-def handle_chk(message):
 @bot.message_handler(func=lambda message: message.text.startswith(".chk"))  
+def handle_chk(message):
   
     try:
         # Extract the command argument
