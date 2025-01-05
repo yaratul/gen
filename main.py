@@ -1,98 +1,74 @@
 import telebot
-from skk import fetch_stripe_details
-from gen import generate_cards
+from core import check_card, load_proxies
+from gen1 import generate_cards  # Import the card generation tool from gen1.py
+import os
 
 # Initialize the bot with your token
-BOT_TOKEN = "6126045919:AAE0BO9apAGh6oeBlGOgBWqKYXTYNTI2ppA"
+BOT_TOKEN = "6561482740:AAF8rmN9I4mpAOm_BVfekqgv9raRprnUtlw"
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Command handler for Stripe Key Retrieval
-@bot.message_handler(commands=["sk"])
-@bot.message_handler(func=lambda message: message.text.startswith(".sk"))
-def handle_skk_command(message):
+# Load proxies
+proxies = load_proxies('proxies.txt')
+
+@bot.message_handler(commands=['chk'])
+@bot.message_handler(func=lambda message: message.text.startswith(".chk"))  
+def handle_chk(message):
+
+
     try:
-        # Extract the Stripe key from the command
-        parts = message.text.split()
-        if len(parts) < 2:
-            bot.reply_to(
-                message,
-                "Usage: /skk <Stripe Secret Key>\nExample: /skk sk_live_12345",
-            )
-            return
+        # Extract the command argument
+        args = message.text.split()
+        if len(args) < 2:
+            raise ValueError("Usage: /chk card_number|mm|yyyy|cvc")
 
-        stripe_key = parts[1]
-        response = bot.reply_to(message, "Fetching details, please wait...")
+        card_details = args[1]
+        card_number, exp_month, exp_year, cvc = card_details.split('|')
 
-        # Fetch details using skk.py
-        results = fetch_stripe_details(stripe_key)
+        # Call the core.py function
+        result = check_card(card_number, exp_month, exp_year, cvc, proxies)
 
-        if isinstance(results, str):
-            bot.edit_message_text(
-                chat_id=message.chat.id,
-                message_id=response.message_id,
-                text=f"Error: {results}",
-            )
-        else:
-            output = "𝗦𝘁𝗿𝗶𝗽𝗲 𝗞𝗲𝘆 𝗗𝗲𝘁𝗮𝗶𝗹𝘀:\n\n"
-            for section, info in results.items():
-                output += f"{section.upper()}:\n"
-                if isinstance(info, dict):
-                    for key, value in info.items():
-                        output += f"- {key}: {value}\n"
-                elif isinstance(info, list):
-                    for i, item in enumerate(info, start=1):
-                        output += f"{i}:\n"
-                        for subkey, subvalue in item.items():
-                            output += f"  {subkey}: {subvalue}\n"
-                output += "\n"
+        # Send the API's final response as-is
+        bot.reply_to(message, result)
 
-            bot.edit_message_text(
-                chat_id=message.chat.id,
-                message_id=response.message_id,
-                text=output,
-                parse_mode="Markdown",
-            )
     except Exception as e:
-        bot.reply_to(message, f"An error occurred: {str(e)}")
+        bot.reply_to(message, f"Error: {str(e)}\nUsage: /chk card_number|mm|yyyy|cvc")
 
-# Command handler for /gen and .gen
-@bot.message_handler(commands=["gen"])
-@bot.message_handler(func=lambda message: message.text.startswith(".gen"))
-def handle_gen_command(message):
+@bot.message_handler(commands=['gen'])
+@bot.message_handler(func=lambda message: message.text.startswith(".gen"))  
+def handle_gen(message):
     try:
-        # Extract BIN and amount from the message
-        parts = message.text.split()
-        if len(parts) < 2:
-            bot.reply_to(
-                message,
-                "Usage: /gen <BIN>[|MM|YY|CVV] [amount]\nExample: /gen 404609 25\nExample with constants: /gen 519959302061|10|27|517 10",
-            )
-            return
+        # Extract the command argument
+        args = message.text.split()
+        if len(args) < 2:
+            raise ValueError("Usage: /gen BIN|mm|yy|cvv quantity")
 
-        bin_input = parts[1]
-        amount = int(parts[2]) if len(parts) > 2 else 25  # Default to 25 cards if amount not provided
+        bin_input = args[1]
+        quantity = int(args[2]) if len(args) > 2 else 25  # Default to 25 if no quantity is provided
 
-        # Generate cards
-        response = bot.reply_to(message, "Generating cards, please wait...")
-        cards, bin_info = generate_cards(bin_input, amount)
+        if quantity > 3000:
+            raise ValueError("Maximum number of cards is 3000.")
 
-        # Format the output in monospace for Telegram
-        card_output = "\n".join([f"`{card}`" for card in cards])
-        bot.edit_message_text(
-            chat_id=message.chat.id,
-            message_id=response.message_id,
-            text=(
-                f"𝗕𝗜𝗡 ⇾ `{bin_input}`\n𝗔𝗺𝗼𝘂𝗻𝘁 ⇾ `{amount}`\n\n{card_output}\n\n𝗜𝗻𝗳𝗼:\n`{bin_info}`"
-            ),
-            parse_mode="Markdown",
-        )
+        # Generate cards using the gen.py functionality and pass proxies
+        cards, bin_info = generate_cards(bin_input, quantity, proxies)
+
+        # Format the result for BIN info
+        card_list = "\n".join(cards)
+
+        # Save the generated cards to a .txt file
+        file_name = f"generated_cards_{bin_input.replace('|', '')}.txt"
+        with open(file_name, 'w') as f:
+            f.write(f"BIN Info:\n{bin_info}\n\nGenerated Cards:\n{card_list}")
+
+        # Send the file to the user
+        with open(file_name, 'rb') as file:
+            bot.send_document(message.chat.id, file, caption=f"Here are your {quantity} generated cards!")
+
+        # Clean up the file after sending
+        os.remove(file_name)
+
     except Exception as e:
-        bot.reply_to(message, f"An error occurred: {str(e)}")
-        
-        
-        
-        #command for chk
-        
+        bot.reply_to(message, f"Error: {str(e)}\nUsage: /gen BIN|mm|yy|cvv quantity")
 
-# Run the bot
+# Start polling
+print("Bot is running...")
 bot.polling()
