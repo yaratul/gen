@@ -1,26 +1,43 @@
-from datetime import datetime
 import random
 import re
 import requests
+from datetime import datetime
 
-def fetch_bin_info(bin_number):
+def get_random_proxy(proxies):
+    """ Select a random proxy from the list. """
+    proxy = random.choice(proxies)
+    ip_port, credentials = proxy.split('@')
+    proxy_url = f"http://{credentials}@{ip_port}"
+    return {
+        "http": proxy_url,
+        "https": proxy_url,
+    }
+
+def fetch_bin_info(bin_number, proxies):
     """
-    Fetch BIN details using a free API.
+    Fetch BIN details using a free API and proxy support.
     """
     api_url = f"https://lookup.binlist.net/{bin_number}"
     headers = {"Accept-Version": "3"}
-    response = requests.get(api_url, headers=headers)
 
-    if response.status_code == 200:
-        data = response.json()
-        brand = data.get('scheme', 'Unknown').upper()
-        type_ = data.get('type', 'Unknown').upper()
-        level = data.get('brand', 'Unknown').upper()
-        bank = data.get('bank', {}).get('name', 'Unknown')
-        country = data.get('country', {}).get('name', 'Unknown')
-        emoji = data.get('country', {}).get('emoji', '')
-        return f"{brand} - {type_} - {level}\n𝐈𝐬𝐬𝐮𝐞𝐫: {bank}\n𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country} {emoji}"
-    else:
+    proxy = get_random_proxy(proxies)  # Get a random proxy for the request
+    try:
+        response = requests.get(api_url, headers=headers, proxies=proxy, timeout=10)
+
+        if response.status_code == 200:
+            data = response.json()
+            brand = data.get('scheme', 'Unknown').upper()
+            type_ = data.get('type', 'Unknown').upper()
+            level = data.get('brand', 'Unknown').upper()
+            bank = data.get('bank', {}).get('name', 'Unknown')
+            country = data.get('country', {}).get('name', 'Unknown')
+            emoji = data.get('country', {}).get('emoji', '')
+            return f"{brand} - {type_} - {level}\n𝐈𝐬𝐬𝐮𝐞𝐫: {bank}\n𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country} {emoji}"
+        else:
+            print(f"BIN Lookup Failed: {response.status_code} - {response.text}")
+            return "Failed to fetch BIN details."
+    except requests.RequestException as e:
+        print(f"BIN Lookup Error: {e}")
         return "Failed to fetch BIN details."
 
 def luhn_algorithm(bin_prefix, length=16):
@@ -86,7 +103,7 @@ def parse_input(bin_input):
 
     return card_bin, constant_month, constant_year, constant_cvv
 
-def generate_cards(bin_input, amount=25):
+def generate_cards(bin_input, amount=25, proxies=None):
     """
     Generate a list of valid cards based on the given BIN and constants.
     """
@@ -97,7 +114,7 @@ def generate_cards(bin_input, amount=25):
 
     bin_prefix = card_bin[:6]
     cards = []
-    bin_info = fetch_bin_info(bin_prefix)
+    bin_info = fetch_bin_info(bin_prefix, proxies)  # Pass proxies to the fetch_bin_info function
 
     for _ in range(amount):
         card_number = luhn_algorithm(card_bin)
