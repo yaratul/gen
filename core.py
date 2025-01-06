@@ -63,7 +63,7 @@ def check_card(card_number, exp_month, exp_year, cvc, proxies):
         # Part 1: Generate payment token
         url1 = 'https://api.stripe.com/v1/payment_methods'
         headers1 = {
-            'authority': 'api.stripe.com',
+    'authority': 'api.stripe.com',
     'accept': 'application/json',
     'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
     'content-type': 'application/x-www-form-urlencoded',
@@ -78,7 +78,7 @@ def check_card(card_number, exp_month, exp_year, cvc, proxies):
     'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
         }
         data1 = {
-             'billing_details[address][city]': 'Clear Lake',
+    'billing_details[address][city]': 'Clear Lake',
     'billing_details[address][country]': 'US',
     'billing_details[address][line1]': '48 1 1/2 Street',
     'billing_details[address][line2]': '',
