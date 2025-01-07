@@ -103,18 +103,18 @@ def parse_input(bin_input):
 
     return card_bin, constant_month, constant_year, constant_cvv
 
-def generate_cards(bin_input, amount=25, proxies=None):
+def generate_cards(bin_input, amount=25, proxies=None, constant_month=None, constant_year=None, constant_cvv=None):
     """
     Generate a list of valid cards based on the given BIN and constants.
     """
-    card_bin, constant_month, constant_year, constant_cvv = parse_input(bin_input)
+    card_bin, _, _, _ = parse_input(bin_input)
 
     if not card_bin or len(card_bin) < 6:
         return "Error: BIN must be at least 6 digits."
 
     bin_prefix = card_bin[:6]
     cards = []
-    bin_info = fetch_bin_info(bin_prefix, proxies)  # Pass proxies to the fetch_bin_info function
+    bin_info = fetch_bin_info(bin_prefix, proxies)
 
     for _ in range(amount):
         card_number = luhn_algorithm(card_bin)
