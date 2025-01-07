@@ -4,7 +4,7 @@ from core import check_card, bin_lookup, load_proxies
 proxies = load_proxies('proxies.txt')
 
 # List of allowed users (replace with actual user IDs)
-ALLOWED_USERS = [1517013110, 5537383735]  # Add authorized user IDs here
+ALLOWED_USERS = [1517013110, 5537383735, 1405151206]  # Add authorized user IDs here
 
 
 def handle_chk(bot, message):
