@@ -4,7 +4,7 @@ from cmd import handle_chk, handle_mchk
 from gen1 import generate_cards, fetch_bin_info
 
 # Initialize the bot with your token
-BOT_TOKEN = "6561482740:AAF8rmN9I4mpAOm_BVfekqgv9raRprnUtlw"  # Replace with your bot token
+BOT_TOKEN = "6561482740:AAH_wbK6saQYK5PbyfIhYiuM1weg6dqxoks"  # Replace with your bot token
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Load proxies
