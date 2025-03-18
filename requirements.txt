@@ -5,3 +5,4 @@ requests[socks]
 telebot
 stripe
 Flask
+pymongo
