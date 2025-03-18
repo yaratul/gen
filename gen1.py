@@ -2,6 +2,18 @@ import random
 import re
 import requests
 from datetime import datetime
+from pymongo import MongoClient
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
+
+# MongoDB connection
+MONGO_URI = os.getenv("MONGO_URI")
+client = MongoClient(MONGO_URI)
+db = client["bin_database"]
+collection = db["bin_details"]
 
 # Webshare.io proxy credentials
 PROXY_USER = os.getenv("PROXY_USER")
@@ -15,8 +27,15 @@ PROXY_URL = f"{PROXY_PROTOCOL}://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_P
 
 def fetch_bin_info(bin_number):
     """
-    Fetch BIN details using a free API and webshare.io proxy.
+    Fetch BIN details from MongoDB or the BIN lookup API.
     """
+    # Check if BIN details are already in MongoDB
+    cached_bin = collection.find_one({"bin": bin_number})
+    if cached_bin:
+        print(f"Fetching BIN {bin_number} from MongoDB cache.")
+        return cached_bin["details"]
+
+    # If not in MongoDB, fetch from the BIN lookup API
     api_url = f"https://lookup.binlist.net/{bin_number}"
     headers = {"Accept-Version": "3"}
 
@@ -40,7 +59,12 @@ def fetch_bin_info(bin_number):
             bank = data.get('bank', {}).get('name', 'Unknown')
             country = data.get('country', {}).get('name', 'Unknown')
             emoji = data.get('country', {}).get('emoji', '')
-            return f"{brand} - {type_} - {level}\n𝐈𝐬𝐬𝐮𝐞𝐫: {bank}\n𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country} {emoji}"
+            bin_info = f"{brand} - {type_} - {level}\n𝐈𝐬𝐬𝐮𝐞𝐫: {bank}\n𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country} {emoji}"
+
+            # Cache the BIN details in MongoDB
+            collection.insert_one({"bin": bin_number, "details": bin_info})
+            print(f"Cached BIN {bin_number} in MongoDB.")
+            return bin_info
         else:
             print(f"BIN Lookup Failed: {response.status_code} - {response.text}")
             return "Failed to fetch BIN details."
