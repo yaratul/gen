@@ -1,33 +1,25 @@
 import telebot
 import re
 import os
-from cmd import handle_chk, handle_mchk
 from gen1 import generate_cards, fetch_bin_info
 from flask import Flask, request
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize the bot with your token
-BOT_TOKEN = "6561482740:AAH_wbK6saQYK5PbyfIhYiuM1weg6dqxoks"  # Replace with your bot token
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Load proxies
-proxies = []
-try:
-    with open('proxies.txt', 'r') as f:
-        proxies = [line.strip() for line in f if line.strip()]
-except FileNotFoundError:
-    print("Proxies file not found. Ensure 'proxies.txt' exists.")
+# Webshare.io proxy configuration
+PROXY_USER = os.getenv("PROXY_USER")
+PROXY_PASS = os.getenv("PROXY_PASS")
+PROXY_HOST = os.getenv("PROXY_HOST")
+PROXY_PORT = os.getenv("PROXY_PORT")
+PROXY_PROTOCOL = os.getenv("PROXY_PROTOCOL")
 
-# Command handler for /chk (single card check)
-@bot.message_handler(commands=['chk'])
-@bot.message_handler(func=lambda message: message.text.startswith(".chk"))
-def chk_command(message):
-    handle_chk(bot, message)
-
-# Command handler for /mchk (mass card check)
-@bot.message_handler(commands=['mchk'])
-@bot.message_handler(func=lambda message: message.text.startswith(".mchk"))
-def mchk_command(message):
-    handle_mchk(bot, message)
+PROXY_URL = f"{PROXY_PROTOCOL}://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
 
 # Command handler for /gen (card generation)
 @bot.message_handler(commands=['gen'])
@@ -66,7 +58,6 @@ def gen_command(message):
         cards, bin_info = generate_cards(
             bin_input=card_bin,
             amount=amount,
-            proxies=proxies,
             constant_month=int(constant_month) if constant_month else None,
             constant_year=int(constant_year) if constant_year else None,
             constant_cvv=constant_cvv
@@ -117,7 +108,7 @@ def index():
 if __name__ == '__main__':
     # Set webhook
     bot.remove_webhook()
-    bot.set_webhook(url=f"https://gen-kkw5.onrender.com/{BOT_TOKEN}")
+    bot.set_webhook(url=f"https://your-render-app-url.onrender.com/{BOT_TOKEN}")
 
     # Run Flask app
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
