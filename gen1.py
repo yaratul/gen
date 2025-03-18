@@ -4,11 +4,11 @@ import requests
 from datetime import datetime
 
 # Webshare.io proxy credentials
-PROXY_USER = "pffjbggc-rotate"
-PROXY_PASS = "cegny6wgmhwe"
-PROXY_HOST = "p.webshare.io"
-PROXY_PORT = 80
-PROXY_PROTOCOL = "http"
+PROXY_USER = os.getenv("PROXY_USER")
+PROXY_PASS = os.getenv("PROXY_PASS")
+PROXY_HOST = os.getenv("PROXY_HOST")
+PROXY_PORT = os.getenv("PROXY_PORT")
+PROXY_PROTOCOL = os.getenv("PROXY_PROTOCOL")
 
 # Proxy URL for requests
 PROXY_URL = f"{PROXY_PROTOCOL}://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
