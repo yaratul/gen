@@ -3,26 +3,34 @@ import re
 import requests
 from datetime import datetime
 
-def get_random_proxy(proxies):
-    """ Select a random proxy from the list. """
-    proxy = random.choice(proxies)
-    ip_port, credentials = proxy.split('@')
-    proxy_url = f"http://{credentials}@{ip_port}"
-    return {
-        "http": proxy_url,
-        "https": proxy_url,
-    }
+# Webshare.io proxy credentials
+PROXY_USER = "pffjbggc-rotate"
+PROXY_PASS = "cegny6wgmhwe"
+PROXY_HOST = "p.webshare.io"
+PROXY_PORT = 80
+PROXY_PROTOCOL = "http"
 
-def fetch_bin_info(bin_number, proxies):
+# Proxy URL for requests
+PROXY_URL = f"{PROXY_PROTOCOL}://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
+
+def fetch_bin_info(bin_number):
     """
-    Fetch BIN details using a free API and proxy support.
+    Fetch BIN details using a free API and webshare.io proxy.
     """
     api_url = f"https://lookup.binlist.net/{bin_number}"
     headers = {"Accept-Version": "3"}
 
-    proxy = get_random_proxy(proxies)  # Get a random proxy for the request
     try:
-        response = requests.get(api_url, headers=headers, proxies=proxy, timeout=10)
+        # Use the webshare.io proxy for the request
+        response = requests.get(
+            api_url,
+            headers=headers,
+            proxies={
+                "http": PROXY_URL,
+                "https": PROXY_URL,
+            },
+            timeout=10,
+        )
 
         if response.status_code == 200:
             data = response.json()
@@ -103,7 +111,7 @@ def parse_input(bin_input):
 
     return card_bin, constant_month, constant_year, constant_cvv
 
-def generate_cards(bin_input, amount=25, proxies=None, constant_month=None, constant_year=None, constant_cvv=None):
+def generate_cards(bin_input, amount=25, constant_month=None, constant_year=None, constant_cvv=None):
     """
     Generate a list of valid cards based on the given BIN and constants.
     """
@@ -114,7 +122,7 @@ def generate_cards(bin_input, amount=25, proxies=None, constant_month=None, cons
 
     bin_prefix = card_bin[:6]
     cards = []
-    bin_info = fetch_bin_info(bin_prefix, proxies)
+    bin_info = fetch_bin_info(bin_prefix)
 
     for _ in range(amount):
         card_number = luhn_algorithm(card_bin)
