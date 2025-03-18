@@ -12,15 +12,6 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Webshare.io proxy configuration
-PROXY_USER = os.getenv("PROXY_USER")
-PROXY_PASS = os.getenv("PROXY_PASS")
-PROXY_HOST = os.getenv("PROXY_HOST")
-PROXY_PORT = os.getenv("PROXY_PORT")
-PROXY_PROTOCOL = os.getenv("PROXY_PROTOCOL")
-
-PROXY_URL = f"{PROXY_PROTOCOL}://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
-
 # Command handler for /gen (card generation)
 @bot.message_handler(commands=['gen'])
 @bot.message_handler(func=lambda message: message.text.startswith(".gen"))
