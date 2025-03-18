@@ -108,7 +108,7 @@ def index():
 if __name__ == '__main__':
     # Set webhook
     bot.remove_webhook()
-    bot.set_webhook(url=f"https://your-render-app-url.onrender.com/{BOT_TOKEN}")
+    bot.set_webhook(url=f"https://gen-kkw5.onrender.com/{BOT_TOKEN}")
 
     # Run Flask app
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
