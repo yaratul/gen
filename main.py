@@ -1,7 +1,9 @@
 import telebot
 import re
+import os
 from cmd import handle_chk, handle_mchk
 from gen1 import generate_cards, fetch_bin_info
+from flask import Flask, request
 
 # Initialize the bot with your token
 BOT_TOKEN = "6561482740:AAH_wbK6saQYK5PbyfIhYiuM1weg6dqxoks"  # Replace with your bot token
@@ -28,8 +30,6 @@ def mchk_command(message):
     handle_mchk(bot, message)
 
 # Command handler for /gen (card generation)
-import os
-
 @bot.message_handler(commands=['gen'])
 @bot.message_handler(func=lambda message: message.text.startswith(".gen"))
 def gen_command(message):
@@ -99,7 +99,25 @@ def gen_command(message):
 
     except Exception as e:
         bot.reply_to(message, f"Error: {str(e)}\nUsage: /gen <BIN or card format> [amount (up to 3000)]")
-  
-# Start polling
-print("Bot is running...")
-bot.polling()
+
+# Flask app for Render
+app = Flask(__name__)
+
+@app.route('/' + BOT_TOKEN, methods=['POST'])
+def webhook():
+    update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
+    bot.process_new_updates([update])
+    return 'ok', 200
+
+@app.route('/')
+def index():
+    return 'Bot is running!'
+
+# Start the Flask app
+if __name__ == '__main__':
+    # Set webhook
+    bot.remove_webhook()
+    bot.set_webhook(url=f"https://your-render-app-url.onrender.com/{BOT_TOKEN}")
+
+    # Run Flask app
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
