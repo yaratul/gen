@@ -2,6 +2,7 @@ import telebot
 import re
 import os
 from gen1 import generate_cards, fetch_bin_info
+from b3 import b3_auth  # Import the b3_auth function
 from flask import Flask, request
 from dotenv import load_dotenv
 
@@ -11,6 +12,18 @@ load_dotenv()
 # Initialize the bot with your token
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
+
+# Command handler for /chk (single card check)
+@bot.message_handler(commands=['chk'])
+@bot.message_handler(func=lambda message: message.text.startswith(".chk"))
+def chk_command(message):
+    handle_chk(bot, message)
+
+# Command handler for /mchk (mass card check)
+@bot.message_handler(commands=['mchk'])
+@bot.message_handler(func=lambda message: message.text.startswith(".mchk"))
+def mchk_command(message):
+    handle_mchk(bot, message)
 
 # Command handler for /gen (card generation)
 @bot.message_handler(commands=['gen'])
@@ -81,6 +94,28 @@ def gen_command(message):
 
     except Exception as e:
         bot.reply_to(message, f"Error: {str(e)}\nUsage: /gen <BIN or card format> [amount (up to 3000)]")
+
+# Command handler for /b3 or .b3 (BrainTree Auth)
+@bot.message_handler(commands=['b3'])
+@bot.message_handler(func=lambda message: message.text.startswith(".b3"))
+def b3_command(message):
+    try:
+        # Extract the card number or full card details
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            bot.reply_to(message, "Usage: /b3 <card_number> or .b3 <card_number>")
+            return
+
+        cc_input = args[1].strip()
+
+        # Call the b3_auth function from b3.py
+        response = b3_auth(cc_input)
+
+        # Send the response to the user
+        bot.reply_to(message, response)
+
+    except Exception as e:
+        bot.reply_to(message, f"Error: {str(e)}\nUsage: /b3 <card_number> or .b3 <card_number>")
 
 # Flask app for Render
 app = Flask(__name__)
