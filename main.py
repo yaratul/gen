@@ -2,7 +2,7 @@ import telebot
 import re
 import os
 from gen1 import generate_cards, fetch_bin_info
-from core import check_card  # Import functions from core.py
+from core import check_card,load_proxies  # Import functions from core.py
 from flask import Flask, request
 from dotenv import load_dotenv
 from pymongo import MongoClient
@@ -19,9 +19,6 @@ MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI)
 db = client["bin_database"]
 collection = db["bin_details"]
-
-# Load proxies
-proxies = load_proxies("proxies.txt")  # Ensure proxies.txt exists in the same directory
 
 # Command handler for /chk (single card check)
 @bot.message_handler(commands=['chk'])
