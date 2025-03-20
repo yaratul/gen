@@ -2,7 +2,7 @@ import telebot
 import re
 import os
 from gen1 import generate_cards, fetch_bin_info
-from core import check_card  # Import functions from core.py
+from core import check_card  # Import the check_card function from core.py
 from flask import Flask, request
 from dotenv import load_dotenv
 from pymongo import MongoClient
@@ -56,7 +56,7 @@ def chk_command(message):
             return
 
         # Perform card check using core.py
-        response = check_card(card_number, exp_month, exp_year, cvc, proxies)
+        response = check_card(card_number, exp_month, exp_year, cvc)
 
         # Send the response to the user
         bot.reply_to(message, response)
