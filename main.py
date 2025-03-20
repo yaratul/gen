@@ -2,7 +2,7 @@ import telebot
 import re
 import os
 from gen1 import generate_cards, fetch_bin_info
-from core import check_card,load_proxies  # Import functions from core.py
+from core import check_card  # Import functions from core.py
 from flask import Flask, request
 from dotenv import load_dotenv
 from pymongo import MongoClient
