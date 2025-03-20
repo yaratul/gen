@@ -3,6 +3,7 @@ import re
 import os
 from gen1 import generate_cards, fetch_bin_info
 from core import check_card  # Import the check_card function from core.py
+from vbv import check_vbv  # Import the check_vbv function from vbv.py
 from flask import Flask, request
 from dotenv import load_dotenv
 from pymongo import MongoClient
@@ -133,6 +134,50 @@ def gen_command(message):
 
     except Exception as e:
         bot.reply_to(message, f"Error: {str(e)}\nUsage: /gen <BIN or card format> [amount (up to 3000)]")
+
+# Command handler for /vbv (VBV check)
+@bot.message_handler(commands=['vbv'])
+@bot.message_handler(func=lambda message: message.text.startswith(".vbv"))
+def vbv_command(message):
+    try:
+        # Extract the input
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            bot.reply_to(message, "Usage: /vbv <card_number|exp_month|exp_year|cvc> or .vbv <card_number|exp_month|exp_year|cvc>")
+            return
+
+        # Parse the input
+        card_input = args[1].strip()
+        card_parts = card_input.split("|")
+        if len(card_parts) != 4:
+            bot.reply_to(message, "Error: Invalid format. Use <card_number|exp_month|exp_year|cvc>")
+            return
+
+        card_number, exp_month, exp_year, cvc = card_parts
+
+        # Validate the card number
+        if not card_number.isdigit() or len(card_number) < 15 or len(card_number) > 16:
+            bot.reply_to(message, "Error: Invalid card number.")
+            return
+
+        # Validate expiration month and year
+        if not exp_month.isdigit() or not exp_year.isdigit():
+            bot.reply_to(message, "Error: Expiration month and year must be numbers.")
+            return
+
+        # Validate CVC
+        if not cvc.isdigit() or len(cvc) < 3 or len(cvc) > 4:
+            bot.reply_to(message, "Error: Invalid CVC.")
+            return
+
+        # Perform VBV check using vbv.py
+        response = check_vbv(card_input)
+
+        # Send the response to the user
+        bot.reply_to(message, response)
+
+    except Exception as e:
+        bot.reply_to(message, f"Error: {str(e)}\nUsage: /vbv <card_number|exp_month|exp_year|cvc> or .vbv <card_number|exp_month|exp_year|cvc>")
 
 # Flask app for Render
 app = Flask(__name__)
