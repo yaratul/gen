@@ -2,9 +2,10 @@ import telebot
 import re
 import os
 from gen1 import generate_cards, fetch_bin_info
-from b3 import b3_auth  # Import the b3_auth function
+from core import check_card, load_proxies  # Import functions from core.py
 from flask import Flask, request
 from dotenv import load_dotenv
+from pymongo import MongoClient
 
 # Load environment variables from .env file
 load_dotenv()
@@ -13,17 +14,58 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 
+# MongoDB connection for caching BIN details
+MONGO_URI = os.getenv("MONGO_URI")
+client = MongoClient(MONGO_URI)
+db = client["bin_database"]
+collection = db["bin_details"]
+
+# Load proxies
+proxies = load_proxies("proxies.txt")  # Ensure proxies.txt exists in the same directory
+
 # Command handler for /chk (single card check)
 @bot.message_handler(commands=['chk'])
 @bot.message_handler(func=lambda message: message.text.startswith(".chk"))
 def chk_command(message):
-    handle_chk(bot, message)
+    try:
+        # Extract the input
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            bot.reply_to(message, "Usage: /chk <card_number|exp_month|exp_year|cvc> or .chk <card_number|exp_month|exp_year|cvc>")
+            return
 
-# Command handler for /mchk (mass card check)
-@bot.message_handler(commands=['mchk'])
-@bot.message_handler(func=lambda message: message.text.startswith(".mchk"))
-def mchk_command(message):
-    handle_mchk(bot, message)
+        # Parse the input
+        card_input = args[1].strip()
+        card_parts = card_input.split("|")
+        if len(card_parts) != 4:
+            bot.reply_to(message, "Error: Invalid format. Use <card_number|exp_month|exp_year|cvc>")
+            return
+
+        card_number, exp_month, exp_year, cvc = card_parts
+
+        # Validate the card number
+        if not card_number.isdigit() or len(card_number) < 15 or len(card_number) > 16:
+            bot.reply_to(message, "Error: Invalid card number.")
+            return
+
+        # Validate expiration month and year
+        if not exp_month.isdigit() or not exp_year.isdigit():
+            bot.reply_to(message, "Error: Expiration month and year must be numbers.")
+            return
+
+        # Validate CVC
+        if not cvc.isdigit() or len(cvc) < 3 or len(cvc) > 4:
+            bot.reply_to(message, "Error: Invalid CVC.")
+            return
+
+        # Perform card check using core.py
+        response = check_card(card_number, exp_month, exp_year, cvc, proxies)
+
+        # Send the response to the user
+        bot.reply_to(message, response)
+
+    except Exception as e:
+        bot.reply_to(message, f"Error: {str(e)}\nUsage: /chk <card_number|exp_month|exp_year|cvc> or .chk <card_number|exp_month|exp_year|cvc>")
 
 # Command handler for /gen (card generation)
 @bot.message_handler(commands=['gen'])
@@ -94,28 +136,6 @@ def gen_command(message):
 
     except Exception as e:
         bot.reply_to(message, f"Error: {str(e)}\nUsage: /gen <BIN or card format> [amount (up to 3000)]")
-
-# Command handler for /b3 or .b3 (BrainTree Auth)
-@bot.message_handler(commands=['b3'])
-@bot.message_handler(func=lambda message: message.text.startswith(".b3"))
-def b3_command(message):
-    try:
-        # Extract the card number or full card details
-        args = message.text.split(maxsplit=1)
-        if len(args) < 2:
-            bot.reply_to(message, "Usage: /b3 <card_number> or .b3 <card_number>")
-            return
-
-        cc_input = args[1].strip()
-
-        # Call the b3_auth function from b3.py
-        response = b3_auth(cc_input)
-
-        # Send the response to the user
-        bot.reply_to(message, response)
-
-    except Exception as e:
-        bot.reply_to(message, f"Error: {str(e)}\nUsage: /b3 <card_number> or .b3 <card_number>")
 
 # Flask app for Render
 app = Flask(__name__)
